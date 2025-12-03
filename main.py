@@ -143,25 +143,32 @@ async def add_user_handler(event):
         await event.edit("⚠️ **Error:** No eligible user found in this group to add.")
         return
 
-    try:
-        # Prepare data for Firestore
+try:
+        # Create a reference to the document
+        doc_ref = db.collection(COLLECTION_NAME).document(user_id)
+        doc = doc_ref.get()
+
+        # 1. CHECK IF USER ALREADY EXISTS
+        if doc.exists:
+            await event.edit(f"⚠️ **User {user.first_name} already exists in the database!**")
+            return
+
+        # 2. IF NOT, PROCEED TO ADD
         data = {
-            "user_id": target_user.id,
-            "user_name": target_user.first_name,
-            "allowed_group_id": chat_id,
+            "user_id": user.id,
+            "user_name": user.first_name,
             "balance_bdt": 0.0,
             "balance_usdt": 0.0,
             "product_list": DEFAULT_PRODUCT_LIST,
             "created_at": firestore.SERVER_TIMESTAMP
         }
         
-        # Store in Firestore using Chat ID as the Document ID
-        db.collection(COLLECTION_NAME).document(chat_id).set(data)
+        # Save data
+        doc_ref.set(data)
         
         success_msg = (
-            f"✅ **User Added Successfully!**\n\n"
-            f"👤 **User:** {target_user.first_name} (`{target_user.id}`)\n"
-            f"🆔 **Group ID:** `{chat_id}`\n"
+            f"✅ **User Authorized!**\n\n"
+            f"👤 **User:** {user.first_name} (`{user.id}`)\n"
             f"💰 **Initial Balance:** 0 BDT"
         )
         await event.edit(success_msg)
@@ -169,7 +176,6 @@ async def add_user_handler(event):
     except Exception as e:
         logger.error(f"Error adding user: {e}")
         await event.edit(f"❌ **Error:** {str(e)}")
-
 
 @client.on(events.NewMessage(outgoing=True, pattern=r"^\.removeuser$"))
 async def remove_user_handler(event):
